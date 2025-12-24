@@ -1,0 +1,2 @@
+docker hub = https://hub.docker.com/r/febrian220205/rice-classification-project
+workflows = https://github.com/Febr22/SMSML_Mohammad-Febrian_Alifanma
