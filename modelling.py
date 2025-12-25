@@ -1,50 +1,48 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 import mlflow
 import mlflow.sklearn
-import sys
-import os
 
-# Menangkap parameter dari MLProject
-n_estimators = int(sys.argv[1]) if len(sys.argv) > 1 else 100
-max_depth = int(sys.argv[2]) if len(sys.argv) > 2 else 5
+# 1. Load Data
+df = pd.read_csv('riceClassification_preprocessing.csv')
+X = df.drop(columns=['Class'])
+y = df['Class']
 
-def main():
-    print("Memulai Training di GitHub Actions...")
+# 2. Split Data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# ==============================================================================
+# PERBAIKAN: Menggunakan mlflow.autolog() sesuai permintaan Reviewer
+# ==============================================================================
+mlflow.set_experiment("Rice_Classification_Autolog")
+mlflow.autolog() # Ini akan otomatis melog model, parameter, dan metrik standar
+
+with mlflow.start_run():
+    # 3. Train Model
+    print("Sedang melatih model dengan Autolog...")
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
     
-    # Load Data
-    if not os.path.exists("rice_processed.csv"):
-        print("Error: Dataset rice_processed.csv tidak ditemukan!")
-        return
+    # 4. Evaluasi Manual (Tambahan)
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    print(f"Akurasi: {acc}")
 
-    df = pd.read_csv("rice_processed.csv")
-    X = df.drop('Class', axis=1)
-    y = df['Class']
+    # 5. Membuat Confusion Matrix (Reviewer minta ini ada gambarnya)
+    print("Membuat Confusion Matrix...")
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=model.classes_, yticklabels=model.classes_)
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.title('Confusion Matrix')
     
-    # Split Data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # Simpan gambar lalu log sebagai artifact
+    plt.savefig("training_confusion_matrix.png")
+    mlflow.log_artifact("training_confusion_matrix.png")
     
-    # Start MLflow Run
-    with mlflow.start_run():
-        # Train Model
-        rf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-        rf.fit(X_train, y_train)
-        
-        # Evaluasi
-        y_pred = rf.predict(X_test)
-        acc = accuracy_score(y_test, y_pred)
-        print(f"Akurasi Model: {acc}")
-        
-        # Log Metrics & Model
-        mlflow.log_param("n_estimators", n_estimators)
-        mlflow.log_metric("accuracy", acc)
-        
-        # Simpan Model agar bisa jadi Artifact
-        mlflow.sklearn.log_model(rf, "model_random_forest")
-        
-    print("Training Selesai.")
-
-if __name__ == "__main__":
-    main()
+    print("Selesai! Cek MLflow UI.")
